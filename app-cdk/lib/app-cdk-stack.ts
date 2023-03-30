@@ -1,16 +1,15 @@
-import * as cdk from 'aws-cdk-lib';
+import { Stack, StackProps, Duration } from "aws-cdk-lib";
 import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
 
-export class AppCdkStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
-    super(scope, id, props);
+interface ConsumerProps extends StackProps {
+  ecrRepository: ecr.Repository;
+}
 
-    // The code that defines your stack goes here
+export class AppCdkStack extends Stack {
+  constructor(scope: Construct, id: string, props: ConsumerProps) {
+    // use the id here as a prefix to identify our test and prod stacks on creation
+    super(scope, `${id}-app-stack`, props);
 
-    // example resource
-    // const queue = new sqs.Queue(this, 'AppCdkQueue', {
-    //   visibilityTimeout: cdk.Duration.seconds(300)
-    // });
   }
 }
