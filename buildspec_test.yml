@@ -4,6 +4,9 @@ phases:
   install:
     runtime-versions:
       nodejs: 14
+    commands:
+      - echo Intalling yarn...
+      - npm install -g yarn
   pre_build:
     commands:
       - cd ./my-app
