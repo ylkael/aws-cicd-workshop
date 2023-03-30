@@ -1,0 +1,41 @@
+# the following environment variables are required:
+# WS_DEFAULT_REGION with the value of region ID
+# IMAGE_TAG with the tag we want to use for the build
+# IMAGE_REPO_URI with a value of Amazon ECR respository URI
+# Open lib/pipeline-cdk-stack.ts
+# Add a new PipelineProject to the docker build stage
+# define a new PipelineProject to provide the environment 
+# for the build and reference buildspec file
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 14
+    commands:
+      - echo Intalling yarn...
+      - npm install -g yarn
+  pre_build:
+    commands:
+        # Login to Amazon ECR
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $IMAGE_REPO_URI
+
+  build:
+    commands:
+      - cd ./my-app
+      - yarn install
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      # Build image (docker build)
+      - docker build -t myapp:$IMAGE_TAG .
+      # Tag image (docker tag)
+      - docker tag myapp:$IMAGE_TAG $IMAGE_REPO_URI:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      # Push image to Amazon ECR (docker push)
+      - docker push $IMAGE_REPO_URI:$IMAGE_TAG
