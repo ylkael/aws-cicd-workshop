@@ -65,6 +65,20 @@ export class PipelineCdkStack extends Stack {
         ],
     });
 
+    const dockerBuildProject = new codebuild.PipelineProject(this, 'DockerBuildProject', {
+      environmentVariables: {
+        'IMAGE_TAG': { value: 'latest' },
+        'IMAGE_REPO_URI': {value: props.ecrRepository.repositoryUri },
+        'AWS_DEFAULT_REGION': {value: process.env.CDK_DEFAULT_REGION },
+      },
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
+        privileged: true,
+        computeType: codebuild.ComputeType.LARGE
+        },
+      buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec_docker.yml'),
+    });
+    
 
     new CfnOutput(this, 'CodeCommitRepositoryUrl', { value: sourceRepo.repositoryCloneUrlHttp });
 
