@@ -5,6 +5,7 @@ import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 interface ConsumerProps extends StackProps {
   ecrRepository: ecr.Repository;
@@ -35,9 +36,48 @@ export class PipelineCdkStack extends Stack {
         buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec_test.yml')
     });
     
-    // Add Artifacts for our source and unit test stages
+    // Create a codebuild pipeline project for our Docker build stage
+    const dockerBuildProject = new codebuild.PipelineProject(this, 'DockerBuildProject', {
+      environmentVariables: {
+        'IMAGE_TAG': { value: 'latest' },
+        'IMAGE_REPO_URI': {value: props.ecrRepository.repositoryUri },
+        'AWS_DEFAULT_REGION': {value: process.env.CDK_DEFAULT_REGION },
+      },
+      environment: {
+        buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
+        privileged: true,
+        computeType: codebuild.ComputeType.LARGE
+        },
+      buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec_docker.yml'),
+    });
+    
+    // IAM Policy Statement to ALLOW the build environment to interact with Amazon ECR
+    const dockerBuildRolePolicy =  new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: ['*'],
+      actions: [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:GetRepositoryPolicy",
+        "ecr:DescribeRepositories",
+        "ecr:ListImages",
+        "ecr:DescribeImages",
+        "ecr:BatchGetImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage"
+      ]
+    });
+    
+    // Add the role to the build project
+    dockerBuildProject.addToRolePolicy(dockerBuildRolePolicy);
+        
+    // Add Artifacts for our source & unit test stages & docker build stage
     const sourceOutput = new codepipeline.Artifact();
     const unitTestOutput = new codepipeline.Artifact();
+    const dockerBuildOutput = new codepipeline.Artifact();
 
     // Add a stage and action for our source control repository
     pipeline.addStage({
@@ -65,19 +105,20 @@ export class PipelineCdkStack extends Stack {
         ],
     });
 
-    const dockerBuildProject = new codebuild.PipelineProject(this, 'DockerBuildProject', {
-      environmentVariables: {
-        'IMAGE_TAG': { value: 'latest' },
-        'IMAGE_REPO_URI': {value: props.ecrRepository.repositoryUri },
-        'AWS_DEFAULT_REGION': {value: process.env.CDK_DEFAULT_REGION },
-      },
-      environment: {
-        buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
-        privileged: true,
-        computeType: codebuild.ComputeType.LARGE
-        },
-      buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec_docker.yml'),
+    // Add a stage and action for our docker build
+    pipeline.addStage({
+      stageName: 'Docker-Push-ECR',
+      actions: [
+        new codepipeline_actions.CodeBuildAction({
+          actionName: 'docker-build',
+          project: dockerBuildProject,
+          input: sourceOutput,
+          outputs: [dockerBuildOutput],
+        }),
+      ],
     });
+    
+
     
 
     new CfnOutput(this, 'CodeCommitRepositoryUrl', { value: sourceRepo.repositoryCloneUrlHttp });
