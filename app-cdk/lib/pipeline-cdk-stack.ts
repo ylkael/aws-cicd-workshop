@@ -4,9 +4,15 @@ import * as codecommit from 'aws-cdk-lib/aws-codecommit';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as codebuild from 'aws-cdk-lib/aws-codebuild';
 import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
+
+interface ConsumerProps extends StackProps {
+  ecrRepository: ecr.Repository;
+}
+
 
 export class PipelineCdkStack extends Stack {
-  constructor(scope: Construct, id: string, props: StackProps) {
+  constructor(scope: Construct, id: string, props: ConsumerProps) {
     super(scope, id, props);
 
     const sourceRepo = new codecommit.Repository(this, 'CICD_Workshop', {
