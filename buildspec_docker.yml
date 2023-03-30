@@ -39,3 +39,8 @@ phases:
       - echo Pushing the Docker image...
       # Push image to Amazon ECR (docker push)
       - docker push $IMAGE_REPO_URI:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - printf '[{"name":"my-app","imageUri":"%s"}]' $IMAGE_REPO_URI:$IMAGE_TAG > $CODEBUILD_SRC_DIR/imagedefinitions.json
+  
+artifacts:
+  files: imagedefinitions.json
