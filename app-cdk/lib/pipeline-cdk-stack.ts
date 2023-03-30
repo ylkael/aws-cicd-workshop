@@ -11,7 +11,6 @@ interface ConsumerProps extends StackProps {
   ecrRepository: ecr.Repository;
 }
 
-
 export class PipelineCdkStack extends Stack {
   constructor(scope: Construct, id: string, props: ConsumerProps) {
     super(scope, id, props);
@@ -117,10 +116,7 @@ export class PipelineCdkStack extends Stack {
         }),
       ],
     });
-    
-
-    
-
+      
     new CfnOutput(this, 'CodeCommitRepositoryUrl', { value: sourceRepo.repositoryCloneUrlHttp });
 
   }
