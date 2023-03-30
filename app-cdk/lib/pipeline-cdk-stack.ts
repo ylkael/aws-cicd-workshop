@@ -25,7 +25,8 @@ export class PipelineCdkStack extends Stack {
         buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
         privileged: true,
         computeType: codebuild.ComputeType.LARGE
-        }
+        },
+        buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec_test.yml')
     });
     
     // Add Artifacts for our source and unit test stages
