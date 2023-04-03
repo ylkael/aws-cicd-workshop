@@ -11,6 +11,7 @@ import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 interface ConsumerProps extends StackProps {
   ecrRepository: ecr.Repository;
   testAppFargateService: ecsPatterns.ApplicationLoadBalancedFargateService;
+  prodAppFargateService: ecsPatterns.ApplicationLoadBalancedFargateService;
 }
 
 export class PipelineCdkStack extends Stack {
@@ -129,8 +130,24 @@ export class PipelineCdkStack extends Stack {
           input: dockerBuildOutput
         }),
       ]
-    });   
+    });
     
+    // Add a new stage and two actions for manual approval and EcsDeployAction:
+    pipeline.addStage({
+      stageName: 'Deploy-Production',
+      actions: [
+        new codepipeline_actions.ManualApprovalAction({
+          actionName: 'Approve-Prod-Deploy',
+          runOrder: 1
+        }),
+        new codepipeline_actions.EcsDeployAction({
+          actionName: 'deployECS',
+          service: props.prodAppFargateService.service,
+          input: dockerBuildOutput,
+          runOrder: 2
+        })
+      ]
+    });   
       
     new CfnOutput(this, 'CodeCommitRepositoryUrl', { value: sourceRepo.repositoryCloneUrlHttp });
 
