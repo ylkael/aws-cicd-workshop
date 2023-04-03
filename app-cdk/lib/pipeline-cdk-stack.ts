@@ -7,10 +7,14 @@ import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as codedeploy from 'aws-cdk-lib/aws-codedeploy';
+import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2"
 
 interface ConsumerProps extends StackProps {
   ecrRepository: ecr.Repository;
   testAppFargateService: ecsPatterns.ApplicationLoadBalancedFargateService;
+  greenTargetGroup: elbv2.ApplicationTargetGroup;
+  greenLoadBalancerListener: elbv2.ApplicationListener;
   prodAppFargateService: ecsPatterns.ApplicationLoadBalancedFargateService;
 }
 
@@ -130,9 +134,28 @@ export class PipelineCdkStack extends Stack {
           input: dockerBuildOutput
         }),
       ]
+    });   
+
+    // Add CodeDeploy ECS App
+    const ecsCodeDeployApp = new codedeploy.EcsApplication(this, "my-app", { 
+      applicationName: 'my-app' 
+    });
+
+    // Add CodeDeploy ECS Deployment Group
+    // shifts 10 percent of traﬃc every minute until all traﬃc is shifted.
+    const prodEcsDeploymentGroup = new codedeploy.EcsDeploymentGroup(this, "my-app-dg", {
+      service: props.prodAppFargateService.service,
+      blueGreenDeploymentConfig: {
+        blueTargetGroup: props.prodAppFargateService.targetGroup,
+        greenTargetGroup: props.greenTargetGroup,
+        listener: props.prodAppFargateService.listener,
+        testListener: props.greenLoadBalancerListener 
+      },
+      deploymentConfig: codedeploy.EcsDeploymentConfig.LINEAR_10PERCENT_EVERY_1MINUTES,
+      application: ecsCodeDeployApp,
     });
     
-    // Add a new stage and two actions for manual approval and EcsDeployAction:
+    // Add a new stage and two actions for manual approval and CodeDeployEcsDeployAction:
     pipeline.addStage({
       stageName: 'Deploy-Production',
       actions: [
@@ -140,14 +163,15 @@ export class PipelineCdkStack extends Stack {
           actionName: 'Approve-Prod-Deploy',
           runOrder: 1
         }),
-        new codepipeline_actions.EcsDeployAction({
-          actionName: 'deployECS',
-          service: props.prodAppFargateService.service,
-          input: dockerBuildOutput,
+        new codepipeline_actions.CodeDeployEcsDeployAction({
+          actionName: 'BlueGreen-deployECS',
+          deploymentGroup: prodEcsDeploymentGroup,
+          appSpecTemplateInput: sourceOutput,
+          taskDefinitionTemplateInput: sourceOutput,
           runOrder: 2
         })
       ]
-    });   
+    });  
       
     new CfnOutput(this, 'CodeCommitRepositoryUrl', { value: sourceRepo.repositoryCloneUrlHttp });
 
